@@ -1,0 +1,59 @@
+@Library("Shared") _
+pipeline {
+    agent { label "saad"}
+    
+    environment {
+        DOCKER_REPO = "saadgeeus/django-notes-app"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage("Hello") {
+            steps{
+                script{
+                    hello()
+                }
+            }
+        }
+        stage ("Code"){
+            steps {
+                 git url: "https://github.com/saadgeeus/django-notes-app.git", branch: "main"
+            }
+        }
+        
+        stage ("Build & Push"){
+            steps {
+                echo "Building and Pushing version: ${IMAGE_TAG}"
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
+                    
+                    // Build using docker compose
+                    sh "docker compose build"
+                    
+                    // Tags lagana (Make sure image name in docker-compose.yml matches)
+                    sh "docker tag django-notes-app:latest ${DOCKER_REPO}:${IMAGE_TAG}"
+                    sh "docker tag django-notes-app:latest ${DOCKER_REPO}:latest"
+                    
+                    sh "docker push ${DOCKER_REPO}:${IMAGE_TAG}"
+                    sh "docker push ${DOCKER_REPO}:latest"
+                }
+            }
+        }
+
+        stage ("Deploy with Compose"){
+            steps {
+                echo "Deploying version: ${IMAGE_TAG} using Docker Compose"
+                // Yahan 'docker compose' use karein (dash hata dein agar v2 hai)
+                sh "IMAGE_TAG=${IMAGE_TAG} DOCKER_REPO=${DOCKER_REPO} docker compose up -d"
+            }
+        }
+        
+        stage ("Cleanup"){
+            steps {
+                echo "Cleaning up dangling images..."
+                sh "docker rmi ${DOCKER_REPO}:${IMAGE_TAG} || true"
+                sh "docker image prune -f"
+            }
+        }
+    }
+}
