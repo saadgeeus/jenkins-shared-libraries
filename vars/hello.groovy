@@ -1,3 +1,3 @@
-def call(){
-  echo "Hello this is saad khan"
+def call() {
+    echo "Hello! Starting the CI/CD Pipeline..."
 }
