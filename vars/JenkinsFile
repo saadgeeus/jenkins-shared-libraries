@@ -1,0 +1,51 @@
+@Library('Shared') _
+
+pipeline {
+    agent { label "saad" }
+    
+    environment {
+        DOCKER_REPO = "saadgeeus/django-notes-app"
+        IMAGE_TAG   = "${env.BUILD_NUMBER}"
+        REPO_URL    = "https://github.com/saadgeeus/django-notes-app.git"
+    }
+
+    stages {
+        stage("Hello") {
+            steps {
+                hello()
+            }
+        }
+
+        stage("Code") {
+            steps {
+                cloneRepo(env.REPO_URL, "main")
+            }
+        }
+        
+        stage("Build & Push") {
+            steps {
+                dockerBuildPush(
+                    credsId: 'docker-hub-creds',
+                    imageName: 'django-notes-app',
+                    repo: env.DOCKER_REPO,
+                    tag: env.IMAGE_TAG
+                )
+            }
+        }
+
+        stage("Deploy") {
+            steps {
+                deployCompose(
+                    repo: env.DOCKER_REPO,
+                    tag: env.IMAGE_TAG
+                )
+            }
+        }
+        
+        stage("Cleanup") {
+            steps {
+                cleanupImages(env.DOCKER_REPO, env.IMAGE_TAG)
+            }
+        }
+    }
+}
